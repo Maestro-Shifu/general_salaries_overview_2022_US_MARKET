@@ -1,0 +1,839 @@
+---
+title: "General Salaries Overview"
+author: "CA Raul Marquez"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_notebook
+---
+
+# Analyzing General Salaries Overview: US Market
+
+With this report we seek to identify, for a human resources company, which positions have been most in demand in recent years, to identify the trend.
+What experience are they looking for, the residence of the employee, the possibility of working remotely.
+
+## 📖 Background
+All the information was obtained from the h1bdata.info portal, it was processed in PostgreSQL, and through a connection with R the analysis was carried out. 2000 positions were the basis of this analysis.
+
+## 💾 The data
+- Name of the position with vacancies.
+- Number of vacancies available to fill.
+- Average salaries of the positions.
+
+
+The HR company is interested in knowing.
+- Where there are more vacancies, in which sectors.
+- What salaries do these vacancies have?
+- If there is a trend in any sector
+- General information that can help decision-making.
+
+
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+#instalar rmarkdown
+install.packages("rmarkdown")
+library(rmarkdown)
+#instalar y correr el paquete de postgre para la conexion, con la base de datos
+install.packages("RPostgreSQL")
+library(RPostgreSQL)
+# conexion 
+install.packages("RPostgres")
+install.packages("DBI")
+install.packages("sf")
+install.packages("sqldf")
+library(DBI)
+library(RPostgres)
+library(sf)
+# 2.0 Parámetros de conexión a PostgreSQL
+dvr <- RPostgres::Postgres()
+db <- 'database1' 
+host_db <- 'localhost'
+db_port <- '5432' 
+db_user <- 'postgres' 
+db_password <- 'Postgre' 
+# 3.0 Conexión
+con <- dbConnect(dvr, dbname = db, host=host_db, port=db_port,
+                 user=db_user, password=db_password)  
+dbListTables(con)
+df1<-  dbReadTable(con, "salaries_all_positions")
+head(df1)
+
+```
+
+
+
+
+
+```{r}
+#Let's start by loading the work packages and our data set
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+suppressPackageStartupMessages(library(tidyverse))
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+options(warn=-1)
+options(message=1)
+suppressMessages(install.packages("viridis"))
+suppressMessages(install.packages("ggthemes"))
+suppressPackageStartupMessages(install.packages("ggcharts"))
+suppressPackageStartupMessages(install.packages("GGally"))
+suppressPackageStartupMessages(install.packages("ggcorrplot"))
+suppressPackageStartupMessages(install.packages("formattable"))
+suppressPackageStartupMessages(install.packages("flextable"))
+suppressPackageStartupMessages(install.packages("IRdisplay"))
+suppressPackageStartupMessages(install.packages("xtable"))
+suppressPackageStartupMessages(install.packages("ggdark"))
+suppressPackageStartupMessages(install.packages("mdthemes"))
+suppressPackageStartupMessages(install.packages("ggExtra"))
+suppressPackageStartupMessages(install.packages("ggtext"))
+suppressPackageStartupMessages(install.packages("waffle"))
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+suppressMessages(library(viridis))
+suppressMessages(library(ggthemes))
+suppressMessages(library(tidyverse))
+suppressPackageStartupMessages(library(GGally))
+suppressPackageStartupMessages(library(ggcharts))
+suppressPackageStartupMessages(library(ggcorrplot))
+suppressPackageStartupMessages(library(patchwork))
+suppressPackageStartupMessages(library(formattable))
+suppressPackageStartupMessages(library(flextable))
+suppressPackageStartupMessages(library(IRdisplay))
+suppressPackageStartupMessages(library(xtable))
+suppressPackageStartupMessages(library(ggdark))
+suppressPackageStartupMessages(library(mdthemes))
+suppressPackageStartupMessages(library(ggExtra))
+suppressPackageStartupMessages(library(ggtext))
+suppressPackageStartupMessages(library(waffle))
+```
+
+Comencemos por crear categorias, voy a tener que crear asi e ir repitiendo p/ luego pasarlo
+ a el dataframe
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+engineer1 <- dbGetQuery(con, "SELECT LOWER(s.job_title), id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%' ")
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+finance1<-  dbGetQuery(con, "SELECT LOWER(s.job_title),id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%finance%'OR LOWER(s.job_title) LIKE '%accountant%'
+OR LOWER(s.job_title) LIKE '%cost%' OR LOWER(s.job_title) LIKE '%sap%' 
+OR LOWER(s.job_title) LIKE '%financial%' OR LOWER(s.job_title) LIKE '%acounting%'
+OR LOWER(s.job_title) LIKE '%business%' OR LOWER(s.job_title) LIKE '%audit%'
+OR LOWER(s.job_title) LIKE '%tax%' OR LOWER(s.job_title) LIKE '%auditor%'
+AND LOWER(s.job_title)
+NOT IN   (SELECT LOWER(s.job_title) FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR  LOWER(s.job_title) LIKE '%medic%'
+OR LOWER(s.job_title) LIKE '%orthodencist%'
+ OR LOWER(s.job_title) LIKE '%dentist%'OR LOWER(s.job_title) LIKE '%chiropracto%'
+                       OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%')")
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+medicine1 <- dbGetQuery(con, "SELECT LOWER(s.job_title), id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%medic%'OR LOWER(s.job_title) LIKE '%orthodencist%'
+ OR LOWER(s.job_title) LIKE '%dentist%'OR LOWER(s.job_title) LIKE '%chiropracto%'
+ OR LOWER(s.job_title) LIKE '%neurologist%' OR LOWER(s.job_title) LIKE '%cardiologist%'
+ OR LOWER(s.job_title) LIKE '%veterinarian%' OR LOWER(s.job_title) LIKE '%nephrologist%'
+ OR LOWER(s.job_title) LIKE '%physician%'
+ AND LOWER(s.job_title)
+ NOT IN (SELECT LOWER(s.job_title) FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR LOWER(s.job_title) LIKE '%finance%'
+OR LOWER(s.job_title) LIKE '%accountant%'OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%')")
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+data1<- dbGetQuery(con, "SELECT LOWER(s.job_title), id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%business%analys%'OR LOWER(s.job_title) LIKE '%odata%analyst%'
+ OR LOWER(s.job_title) LIKE '%data%science%'OR LOWER(s.job_title) LIKE '%data%scientist%' 
+OR LOWER(s.job_title) LIKE '%analyst%' OR LOWER(s.job_title) LIKE '%scientist%'
+OR LOWER(s.job_title) LIKE '%statistician%' OR LOWER(s.job_title) LIKE '%analytics%'
+AND LOWER(s.job_title) NOT IN
+                   (SELECT LOWER(s.job_title) FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR LOWER(s.job_title) LIKE '%finance%'
+OR LOWER(s.job_title) LIKE '%accountant%' OR  LOWER(s.job_title) LIKE '%medic%'OR LOWER(s.job_title) LIKE '%orthodencist%'
+ OR LOWER(s.job_title) LIKE '%dentist%'OR LOWER(s.job_title) LIKE '%chiropracto%'
+                   OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%')")
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+university1<- dbGetQuery(con, "SELECT LOWER(s.job_title), id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%research%' OR LOWER(s.job_title) LIKE '%scholar%'
+OR LOWER(s.job_title) LIKE '%fellow%' OR LOWER(s.job_title) LIKE '%professor%'
+OR LOWER(s.job_title) LIKE '%educat%' OR LOWER(s.job_title) LIKE '%director%'
+OR LOWER(s.job_title) LIKE '%teacher%' OR LOWER(s.job_title) LIKE '%doctoral%'
+OR LOWER(s.job_title) LIKE '%scholar%'
+AND LOWER(s.job_title) NOT IN
+(SELECT LOWER(s.job_title) FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR LOWER(s.job_title) LIKE '%finance%'
+OR LOWER(s.job_title) LIKE '%accountant%' OR  LOWER(s.job_title) LIKE '%medic%'OR LOWER(s.job_title) LIKE '%orthodencist%'
+ OR LOWER(s.job_title) LIKE '%dentist%'OR LOWER(s.job_title) LIKE '%chiropracto%'
+                   OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%')")
+                
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+other1<- dbGetQuery(con, "SELECT LOWER(s.job_title), id FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%consultant%' OR LOWER(s.job_title) LIKE '%manager%'
+OR LOWER(s.job_title) LIKE '%manager%' OR LOWER(s.job_title) LIKE '%marketing%'
+OR LOWER(s.job_title) LIKE '%specialist%' OR LOWER(s.job_title) LIKE '%intern%'
+OR LOWER(s.job_title) LIKE '%epidemiolo%' OR LOWER(s.job_title) LIKE '%staff%' 
+AND LOWER(s.job_title) NOT IN
+(SELECT LOWER(s.job_title) FROM salaries_all_positions AS s
+WHERE LOWER(s.job_title) LIKE '%engineer%' OR LOWER(s.job_title) LIKE '%computer%'
+OR LOWER(s.job_title) LIKE '%programmer%' OR  LOWER(s.job_title) LIKE '%software%'
+ OR  LOWER(s.job_title) LIKE '%testing%'OR  LOWER(s.job_title) LIKE '%system%' 
+OR  LOWER(s.job_title) LIKE '%network%' OR  LOWER(s.job_title) LIKE '%technology%' 
+OR  LOWER(s.job_title) LIKE '%developer%' OR LOWER(s.job_title) LIKE '%finance%'
+OR LOWER(s.job_title) LIKE '%accountant%' OR  LOWER(s.job_title) LIKE '%medic%'OR LOWER(s.job_title) LIKE '%orthodencist%'
+ OR LOWER(s.job_title) LIKE '%dentist%'OR LOWER(s.job_title) LIKE '%chiropracto%'
+                   OR  LOWER(s.job_title) LIKE '%architect'
+OR  LOWER(s.job_title) LIKE '%it%' OR  LOWER(s.job_title) LIKE '%oracle%'
+OR  LOWER(s.job_title) LIKE '%project%' OR  LOWER(s.job_title) LIKE '%quality%'
+OR  LOWER(s.job_title) LIKE '%tech%' OR  LOWER(s.job_title) LIKE '%user$'
+OR  LOWER(s.job_title) LIKE '%qa%' OR  LOWER(s.job_title) LIKE '%tester%'
+OR  LOWER(s.job_title) LIKE '%test%' OR  LOWER(s.job_title) LIKE '%technician%'
+OR  LOWER(s.job_title) LIKE '%designer%' OR  LOWER(s.job_title) LIKE '%database%')")
+```
+
+
+unimos en una columna todos los valores encontrados
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+engineer1 <- engineer1 %>% mutate(cat= 'engineer')
+finance1 <- finance1 %>% mutate(cat= 'finance')
+medicine1 <- medicine1 %>% mutate(cat= 'medicine')
+data1<- data1 %>% mutate(cat= 'data')
+university1<- university1 %>% mutate(cat= 'university')
+other1<- other1 %>% mutate(cat= 'other')
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+categories<- bind_rows(engineer1, finance1, medicine1, data1, university1, other1)
+categories<-  categories %>% rename(job_title= lower) %>% mutate(cat= as.character(cat))
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+head(categories)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+str(categories)
+
+```
+
+Vamos a preparar la data, renombrar y q sean numeros avg_salary y X._H1B_Fill
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+head(df1)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df1<-  dbReadTable(con, "salaries_all_positions")
+df1 <-df1%>% rename(positions_available = X._h1b_fill) 
+str(df1)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df1 <- df1%>% mutate(avg_salary= str_remove(avg_salary, ","), positions_available= str_remove(positions_available,",")) %>%
+  mutate(avg_salary= as.numeric(avg_salary), positions_available= as.numeric(positions_available)) %>%
+  mutate(job_title= str_to_lower(job_title))
+head(df1)   
+# observamos si hay duplicados
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+filter(df1, duplicated(job_title))
+```
+
+
+no encontramos duplicados en el proceso
+
+armamos algunos categorias grupales, que abarquen varios trabajos distintos
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df1<-left_join(df1, categories, by= 'id')
+str(df1)
+count(filter(df1, is.na(cat)))
+head(df1)
+str(df1)
+sum(duplicated(df1$job_title.x))
+filter(df1, duplicated(job_title.y))
+df2<- distinct(df1, job_title.x,  .keep_all = TRUE )
+str(df2)
+sum(is.na(df2$cat))
+```
+
+
+limpiamos los NA en cat para que sean other
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2 <-df2 %>% mutate(cat= ifelse(is.na(cat), 'other', cat ))
+df2<- df2 %>% select(-job_title.y )
+df2 %>% summary() %>% xtable()
+df2 %>% group_by(cat) %>% summarize(mean_salary= mean(avg_salary), mean_positions= mean(positions_available))
+```
+
+
+sacamos los valores pequenos irracionales
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2 <-df2 %>% mutate(avg_salary= ifelse(avg_salary<30000 & cat=='data', 78452, avg_salary )) %>%
+  mutate(avg_salary= ifelse(avg_salary<30000 & cat=='engineer', 90431, avg_salary )) %>%
+  mutate(avg_salary= ifelse(avg_salary<30000 & cat=='finance', 86529, avg_salary )) %>%
+  mutate(avg_salary= ifelse(avg_salary<30000 & cat=='medicine', 139587, avg_salary )) %>%
+  mutate(avg_salary= ifelse(avg_salary<30000 & cat=='other', 90922, avg_salary )) %>%
+    mutate(avg_salary= ifelse(avg_salary<30000 & cat=='university', 63001, avg_salary ))
+```
+
+
+
+saquemos los other que son medicine
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+med <- c("gastroenterologist",                                                                    
+         "orthopedic surgeon",                                                                                  
+         'vascular surgeon',                                                                                    
+         'hematologist oncologist',                                                                          
+         'general surgeon',                                                                                    
+         'radiologist',                                                                                      
+         'neonatologist',                                                                                       
+         'psychiatrist',                                                                                        
+         'endocrinologist',      
+         'pediatrician',                                                                                        
+         'staff psychiatrist', "pulmonologist", "anesthesiologist", 
+         "pulmonary critical care physician", "hospitalist",
+         "physician - hospitalist", 'physician hospitalist' ) 
+#pasamos valores que corresponden a medicina q estan en other
+df2<- df2 %>% mutate(job_title.x= str_trim(job_title.x))%>%
+  mutate(cat= ifelse(job_title.x %in% med  , "medicine", cat ))
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+test %>% filter(cat=='data') %>% arrange(avg_salary)
+# chequeemos la distribucion de salarios por categorias
+#creamos una tabla para interpretar los datos
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+table1<- df2 %>% group_by(cat) %>% summarize(mean(avg_salary),median= median(avg_salary),
+                                             IQR(avg_salary), quantile(avg_salary,0.25)) %>%
+  arrange(desc(median))
+table1
+```
+
+ si observamos los datos, entendemos que la media de medicina de $185951 es una excelente 
+herramienta para interpetar los datos, pero en el caso de las otras categorias que se 
+encuentran sesgadas a la derecha, otras medidas, la mediana nos puede brindar informacion un
+poco mas valiosa, sobre todo sin consideramos el IQR. Pero claramente una oferta para 
+ las posiciones indicadas deben estar alrededor de la media para ser interesantes para 
+candidatos destacados.
+
+```{r}
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph0 <- df2 %>% group_by(cat) %>%
+  ggplot(aes(cat, avg_salary))+
+  geom_boxplot()+
+  stat_summary(fun="mean", color = "black", shape = 16, size = 0.9) +
+  scale_fill_ordinal(option = "D",begin = 0.3, end = 0.9, direction = -1)+
+  coord_flip()+
+  ggtitle("Salaries distributions")+
+  theme(axis.text.x= element_blank())
+  
+graph0
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+q_salary<- c(0,quantile(df2$avg_salary,0.25),quantile(df2$avg_salary,0.4),quantile(df2$avg_salary,0.5),
+             quantile(df2$avg_salary,0.6),quantile(df2$avg_salary,0.8),quantile(df2$avg_salary,1))
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2%>% filter(cat== 'university') %>% summary() 
+# posiciones disponibles por categoria
+positions_a<- df2 %>% select(cat, positions_available) %>% group_by(cat) %>%
+  summarize(suma= sum(positions_available)) %>% mutate(percent= trunc((suma/sum(suma)*100),1))
+positions_a
+# creamos una tabla para interpretar los datos de posiciones disponibles
+table2<- df2 %>% group_by(cat) %>% summarize(mean= mean(positions_available),
+                                             median= median(positions_available),
+                                             iqr= IQR(positions_available),
+                                             quantile= quantile(positions_available,0.25),
+                                             max= max(positions_available),
+                                             sd= sd(positions_available)) %>%
+  arrange(desc(median))
+table2
+```
+
+
+la tabla 2 nos indica las posiciones disponibles de cada posicion por categoria en promedio
+tambien al haber posiciones extremas, la mediana vuelve a resultar una mejor medida para entender cuantas posiciones hay disponibles para cada posicion, un analisis
+mas profundo de como se desarrollan sin esos valores extremos podria ayudarnos a entender mas.
+aqui nuevamente la curva de posiciones disponibles se encuentra sesgada a la derecha
+con una gran concentracion cercana a la mediana.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2pos<- df2 %>% arrange(desc(positions_available)) %>% filter(positions_available < 40000)
+head(df2pos,20)
+head(df2,20)
+```
+
+existe una clara diferencia en la cantidad de puestos disponibles para posiciones de IT
+Se destacan las posiciones de sofware engineer, programmer analyst, software developer,
+recien en octava posicion encontramos otra rama la de business analyst, siendo igualmente
+el 14% de la cantidad de posiciones demandadas de software engineer.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+  
+graph01 <- df2pos %>% group_by(cat) %>%
+  ggplot(aes(cat, positions_available))+
+  geom_boxplot()+
+  scale_y_continuous(breaks = c(0,50,100,150,200,300))+
+  stat_summary(fun="mean", color = "black", shape = 16, size = 0.9) +
+    scale_fill_ordinal(option = "D",begin = 0.3, end = 0.9, direction = -1)+
+  ylim(0,400)+
+    coord_flip()+
+    ggtitle('positions distributions')
+
+
+
+graph01
+
+```
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph02<-df2pos %>% group_by(cat) %>% 
+  ggplot(aes(positions_available))+
+  geom_histogram()+
+  ggtitle('positions distributions')+
+  xlim(100,5000)
+graph02
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph03 <- df2pos %>% 
+  ggplot(aes(job_title.x, log(positions_available), color= cat))+
+  geom_point()+
+  geom_jitter(alpha = 0.2, shape=1)+
+  scale_y_continuous(breaks = c(5,6,7,8,9,10,12))+
+  theme(
+    axis.text.x = element_blank()
+  )+
+  ylim(5,12)
+graph03
+  df2 %>% summarize(quantile= quantile(positions_available,0.98))
+```
+
+
+La gran dispersion de la cantidad de posiciones, no permite observar con los valores
+de sd y mean, claramente como se distribuyen. El 80% de las posiciones, tienen menos de  952 puestos disponibles, solo el 10% de posiciones mas demandadas tienen mas de 2000 lugares
+y solamente el 2% de las posiciones mas demandadas tienen mas de 9000 disponibles.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph1<- positions_a %>%
+  ggplot(aes(cat, suma, fill=cat))+
+  geom_col()+
+  labs(title = "Positions available by cat",
+       fill = "Categories") +
+  geom_text(aes(label=percent), size =4, color= "black")+
+  theme(axis.line.x = element_line(color = "#fdbf11"),
+        axis.title.x = element_text(face = "italic", size = 10),
+        axis.text.x = element_text(size = 10),
+        legend.text = element_text(size = 8, color = "#d2d2d2"),
+        legend.title = element_text(size = 10, color = "#fdbf11"))
+graph1
+  ## Engineer position are far the most demand positions with around 73% of the total demand
+##follow by other positions
+# salarios por categoria
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+salary_a<- df2 %>% select(cat, avg_salary) %>% group_by(cat) %>%
+  summarize(avg_s= trunc(mean(avg_salary),2))  %>% mutate(percent= trunc((avg_s/sum(avg_s)*100),1))
+salary_a
+#graficamos
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph2<- salary_a  %>%
+  ggplot(aes(cat, avg_s, fill=cat))+
+  geom_col()+
+  labs(title = "Average Salaries by cat",
+       fill = "Categories") +
+  geom_text(aes(label=avg_s), size =4, color= "black")+
+  theme(axis.line.x = element_line(color = "#fdbf11"),
+        axis.title.x = element_text(face = "italic", size = 10),
+        axis.text.x = element_text(size = 10),
+        legend.text = element_text(size = 8, color = "#d2d2d2"),
+        legend.title = element_text(size = 10, color = "#fdbf11"))
+graph2
+
+```
+
+  
+We can see that, salaries have an Average of $103000, and that most average salaries 
+are around that, except for medicine sector that has the most significant average salaries.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+salary_a %>% summarize(mean(avg_s))
+#top 10 positions by categories
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top10_d <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'data' & avg_salary >119000) %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary))
+top10_e <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>% 
+  filter(cat== 'engineer' & avg_salary >184000) %>% arrange(desc(avg_salary))%>% 
+  mutate(ranking= rank(avg_salary))
+top10_f <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>% 
+  filter(cat== 'finance' & avg_salary >124700) %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary))
+top10_o <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>% 
+  filter(cat== 'other' & avg_salary >171500) %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary))
+top10_u <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>% 
+  filter(cat== 'university'& avg_salary >159000) %>% arrange(desc(avg_salary))%>% 
+  mutate(ranking= rank(avg_salary))
+top10_m <- top10_m %>% 
+  mutate(ranking= rank(avg_salary))
+#conjunto de los top 10 de cada cat
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top_bind <- top10_d %>% bind_rows(top10_e) %>% bind_rows(top10_f) %>% bind_rows(top10_m)%>% 
+  bind_rows(top10_o) %>% bind_rows(top10_u)
+top_bind
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top_bind %>%
+  ggplot(aes(ranking, avg_salary,  color=cat))+
+  geom_line()
+
+
+# puedo mejorar el grafico top10, voy a probar top5
+
+#top 5 positions by categories
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top5_d <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'data') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+top5_e <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'engineer') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+top5_f <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'finance') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+top5_o <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'other') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+top5_u <-df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'university') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+top5_m <- df2 %>%select(job_title.x, positions_available,cat, avg_salary)%>%
+  filter(cat== 'medicine') %>% arrange(desc(avg_salary)) %>% 
+  mutate(ranking= rank(avg_salary)) %>% top_n(5, avg_salary)
+
+#conjunto de los top 10 de cada cat
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top_bind_5 <- top5_d %>% bind_rows(top5_e) %>% bind_rows(top5_f) %>% bind_rows(top5_m)%>% 
+  bind_rows(top5_o) %>% bind_rows(top5_u)
+top_bind
+top_bind_5 %>%
+  ggplot(aes(ranking, avg_salary,  color=cat))+
+  geom_line()
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+top_bind_5 %>%
+  ggplot(aes(x = avg_salary, y = reorder(job_title.x, avg_salary), color = cat)) +
+  geom_point(size = 4) +
+  geom_segment(aes(xend = 30, yend = job_title.x), size = 2)+
+  labs(title = "Top Salaries by cat",
+       fill = "Categories") +
+  geom_text(aes(label=avg_salary), size =4, color= "black")+
+  theme(axis.line.x = element_line(color = "#fdbf11"),
+        axis.title.x = element_text(face = "italic", size = 10),
+        axis.text.x = element_text(size = 10),
+        legend.text = element_text(size = 8, color = "#d2d2d2"),
+        legend.title = element_text(size = 10, color = "#fdbf11"))
+top5_e %>% select(job_title.x)
+
+```
+
+
+Salaries density by categories.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2 %>%
+  ggplot(aes(avg_salary))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of Salaries by Categories")+
+  facet_wrap(~ cat)+
+  scale_x_continuous("", expand = c(0,0), limits = c(30000,250000), position = "top")
+```
+
+
+salaries have a great concentration in 100 k or less, with only medicine sector receiving
+less concentration and with their professionals with less density in lower incomes
+
+## positions available density
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph4 <-df2 %>%
+  ggplot(aes(positions_available))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of positions available by Categories")+
+  facet_wrap(~ cat)+
+  scale_x_continuous("", expand = c(0,0), limits = c(0,2500), position = "top")
+graph4
+
+str(df2)
+```
+
+
+como se comportan las posiciones y salarios de finanzas y datos
+sacar posiciones demandadas dentro de finance y data las mas pedidas.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+tablef<- df2 %>% group_by(cat) %>% filter(cat== "finance")%>%  summarize(mean= mean(positions_available),
+                                             median= median(positions_available),
+                                             iqr= IQR(positions_available),
+                                             quantile= quantile(positions_available,0.25),
+                                             max= max(positions_available),
+                                             sd= sd(positions_available)) %>%
+  arrange(desc(median))
+tablef
+df2f <- df2 %>% group_by(cat) %>% filter(cat== "finance")
+graph5 <-df2f %>%
+  ggplot(aes(positions_available))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of positions available in Finance")+
+  scale_x_continuous("", expand = c(0,0), limits = c(0,10000), position = "top")
+graph5
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2f %>% summarize(quantile(positions_available,0.80))
+```
+
+En finance hay 98 posiciones el 90 % de las posiciones tienen menos de 1500 puestos disponibles
+ y el 80 % menos de 880 posiciones, este datos es fundamental para definir la oferta
+ disponible de puestos.Solo Business Analyst, una vacante que se cruza con data e Engineer
+posee mas de 33 mil posiciones disponibles.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2f %>% arrange(desc(positions_available)) %>% head( 20)
+
+str(df2f)
+
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+tabled<- df2 %>% group_by(cat) %>% filter(cat== "data")%>%  summarize(mean= mean(positions_available),
+                                                                         median= median(positions_available),
+                                                                         iqr= IQR(positions_available),
+                                                                         quantile= quantile(positions_available,0.25),
+                                                                         max= max(positions_available),
+                                                                         sd= sd(positions_available)) %>%
+  arrange(desc(median))
+tabled
+df2d <- df2 %>% group_by(cat) %>% filter(cat== "data")
+graph6 <-df2f %>%
+  ggplot(aes(positions_available))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of positions available in Data")+
+  scale_x_continuous("", expand = c(0,0), limits = c(0,4000), position = "top")
+graph6
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2d %>% summarize(quantile(positions_available,0.99))
+```
+
+
+
+En data hay 139 posiciones el 90 % de las posiciones tienen menos de 1600 puestos disponibles
+y el 80 % menos de 860 posiciones, este datos es fundamental para definir la oferta
+ disponible de puestos. Solo 2 vacantes tienen una demanda para mas de 10 mil candidatos
+df2d %>% arrange(desc(positions_available)) %>% head( 20)
+```{r}
+str(df2d)
+
+# salarios en finance y data 
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+tablefs<- df2 %>% group_by(cat) %>% filter(cat== "finance")%>%  summarize(mean= mean(avg_salary),
+                                                                         median= median(avg_salary),
+                                                                         iqr= IQR(avg_salary),
+                                                                         quantile= quantile(avg_salary,0.25),
+                                                                         max= max(avg_salary),
+                                                                         sd= sd(avg_salary)) %>%
+  arrange(desc(median))
+tablefs
+graph5s <-df2f %>%
+  ggplot(aes(avg_salary))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of salaries in Finance")+
+  scale_x_continuous("", expand = c(0,0), limits = c(25000,200000), position = "top")
+graph5s
+
+df2f %>% summarize(quantile(avg_salary,0.90))
+```
+
+
+En finance los salarios se encuentran concentrados cerca de la media de $92000 anuales
+La mayoria de las posiciones por encima de la media son de posiciones senior, y 
+como posiciones destacadasd las de CFO.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2f %>% arrange(desc(avg_salary)) %>% print(n=40)
+
+
+#data
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+tableds<- df2 %>% group_by(cat) %>% filter(cat== "data")%>%  summarize(mean= mean(avg_salary),
+                                                                          median= median(avg_salary),
+                                                                          iqr= IQR(avg_salary),
+                                                                          quantile= quantile(avg_salary,0.25),
+                                                                          max= max(avg_salary),
+                                                                          sd= sd(avg_salary)) %>%
+  arrange(desc(median))
+tableds
+graph5d <-df2d %>%
+  ggplot(aes(avg_salary))+
+  geom_density(alpha=0.4)+
+  ggtitle("Distribution of salaries in Data")+
+  scale_x_continuous("", expand = c(0,0), limits = c(0,170000), position = "top")
+graph5d
+
+df2f %>% summarize(quantile(avg_salary,0.90))
+```
+
+
+En data los salarios se encuentran concentrados cerca de la media de $82000 anuales
+ La mayoria de las posiciones por encima de la media son de posiciones senior, y 
+ con las 10 posiciones top tienen salarios superiores a $127 mil anuales.
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2d %>% arrange(desc(avg_salary)) %>% print(n=40)
+```
+
+
+
+ Existe correlacion entre las posiciones disponibles y el salario promedio ofrecido?
+```{r}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2 %>% arrange(desc(avg_salary)) %>%
+  ggplot(aes(log(positions_available),avg_salary, color= cat))+
+  geom_point()
+cor(df2$positions_available, df2$avg_salary)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df2 %>% arrange(desc(avg_salary)) %>% filter(cat== "other") %>% head(40)
+```
+ 
+ 
+
+ En terminos generales, no existe correlacion alguna entre la cantidad de puestos demandados
+y los salarios ofrecidos, esto en algunos casos tiene una logica, ya que hay puestos
+como los de cat Others, vinculados a posiciones de management de elevado nivel como CEO
+que tienen menor demanda en cuanto su oferta, pero el nivel de salarios ofrecidos debe
+ser elevado. Pero en el caso de posiciones medias, existen posiciones con una alta demanda
+ que poseen una oferta salarial actual promedio, igual que otros puestos con menor demanda
+ lo que nos lleva a pensar que talvez exista cierta cartelizacion en la fijacion de salarios.
+ Otro motivo puede ser que esta desviacion en la curva de oferta y demanda laboral, tienda 
+a corregirse, a medida de que transcurra el tiempo. Es un buen indicio para desarrollar
+ expertise en esas areas.
+
+engineer categorias mas demandadas
+```{r}
+df2 %>% arrange(desc(positions_available)) %>% filter(cat== "engineer") %>% head(40)
+```
+
+
+
+Viendo el avg salary de categorias senior
+
+```{r}
+senior <- df2 %>% filter(str_detect(job_title.x,"senior")) 
+head(senior, 20)
+senior%>%  summarize(mean(avg_salary), 
+                        median(avg_salary))
+```
+
+
+Si comparamos el avg de salarios general contra el que se corresponde con posiciones senior
+si observamos una clara tendencia a un mayor nivel de salario para las posiciones que tienen
+esta denominacion.
+
+```{r}
+df2 %>%  summarize(mean(avg_salary), 
+                   median(avg_salary))
+```
+
+
+
+
+ver cuales son las posiciones mas interesantes si consideramos su demanda y su salario.
+```{r}
+table1
+table2
+
+top_demand <- df2 %>% group_by(cat) %>% filter(avg_salary > mean(avg_salary) & positions_available > mean(positions_available))
+print(top_demand,40)
+str(top_demand)
+
+table6 <- top_demand %>% group_by(cat) %>% summarize(positions= sum(positions_available), 
+ mean(avg_salary), n(), percent= (n()/95*100))
+
+table6
+```
+
+
+
+ Podemos considerar que existen menos de 100 posiciones que superan el promedio en salarios
+ y en demanda al mismo tiempo, de las cuales, el 50.5% son posiciones de ingenieria
+ y alrededor del 10% pertenecen a data. La mas demandada en este top filtro es data scientist
+ que podemos considerarla la mejor oferta en este rango.
+ 
+```{r}
+top_demand %>% filter(cat %in% c("data", "finance")) %>% arrange(desc(avg_salary))
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+graph7<- top_demand  %>%
+  ggplot(aes(cat, positions_available, fill=cat))+
+  geom_col()+
+  labs(title = "top demand positions with better salaries by cat",
+       fill = "Cat")+
+  theme(axis.line.x = element_line(color = "#fdbf11"),
+        axis.title.x = element_text(face = "italic", size = 10),
+        axis.text.x = element_text(size = 10),
+        legend.text = element_text(size = 8, color = "#d2d2d2"),
+        legend.title = element_text(size = 10, color = "#fdbf11"))
+graph7
+```
+ 
+ 
+# Analyzing General Salaries Overview: US Market
+
+ manteniendo la tendencia general, las posiciones mas demandandas y con los salarios
+mas interesantes predominan en el sector de ingenieria e IT.
+
+
+# Summary
+
+Podemos centrarnos en posiciones de IT con alta demanda para garantizar que 
+nuestros clientes puedan acceder a estos puestos antes que la competencia, pero
+ una buena estrategia para garantizar un flujo de trabajo continuo, es hacer foco en las
+posiciones que tienen en cada categoria al menos la mediana, en demanda, para tener un flujo
+ constante. Podemso suponer que los salarios para ciertas actividades tederan a crecer,
+ a medida que pase el tiempo, ya que las posiciones no se cubren.
+ 
+ El sector de medicina es muy interesante para el flujo de ingresos de la empresa, poque tiene las posiciones con los salarios mas altos, aunque su demanda es considerablemente inferior a las posiciones IT, tener una buena base en el sector medicina puede ofrecer a la empresa una ventaja competitiva.
